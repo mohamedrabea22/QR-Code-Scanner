@@ -4,9 +4,7 @@
   <meta charset="UTF-8">
   <title>QR Code Scanner</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Aref+Ruqaa+Ink:wght@400;700&family=Cairo:wght@200..1000&family=Lemonada:wght@300..700&family=Miniver&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Quicksand:wght@300..700&display=swap" rel="stylesheet">
+
   <script src="https://unpkg.com/html5-qrcode"></script>
 
   <style>
@@ -17,7 +15,7 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      font-family: "Lemonada", Arial, sans-serif;
+      font-family: Arial, sans-serif;
       color: #fff;
     }
 
@@ -32,14 +30,14 @@
     }
 
     h2 {
-      margin-bottom: 15px;
+      margin-bottom: 10px;
     }
 
     #reader {
       width: 100%;
       border-radius: 15px;
       overflow: hidden;
-      margin-bottom: 15px;
+      margin-bottom: 10px;
     }
 
     #result {
@@ -54,9 +52,10 @@
     .btns {
       display: flex;
       gap: 10px;
+      margin-bottom: 10px;
     }
 
-    button {
+    button, input[type="file"] {
       flex: 1;
       padding: 10px;
       border: none;
@@ -67,8 +66,12 @@
       transition: 0.3s;
     }
 
-    button:hover {
+    button:hover, input[type="file"]:hover {
       background: rgba(255,255,255,0.35);
+    }
+
+    input[type="file"] {
+      text-align: center;
     }
   </style>
 </head>
@@ -85,15 +88,21 @@
       <button id="toggleBtn">تشغيل الكاميرا</button>
       <button id="copyBtn">نسخ</button>
     </div>
+
+    <input type="file" id="imageInput" accept="image/*">
   </div>
 
   <script>
     const resultDiv = document.getElementById("result");
     const toggleBtn = document.getElementById("toggleBtn");
     const copyBtn   = document.getElementById("copyBtn");
+    const imageInput = document.getElementById("imageInput");
 
     let isRunning = false;
-    let lastResult = "";
+    let lastOpened = "";     // آخر لينك اتفتح
+    let lastOpenTime = 0;    // وقت آخر فتح
+
+    const OPEN_COOLDOWN = 2000; // 2 ثواني بين كل فتح
 
     const html5QrCode = new Html5Qrcode("reader");
 
@@ -106,21 +115,26 @@
       }
     }
 
+    function handleResult(decodedText) {
+      resultDiv.innerText = "📌 " + decodedText;
+
+      if (isValidURL(decodedText)) {
+        const now = Date.now();
+
+        // افتح كل مرة، بس امنع spam في نفس الثانية
+        if (decodedText !== lastOpened || (now - lastOpenTime) > OPEN_COOLDOWN) {
+          lastOpened = decodedText;
+          lastOpenTime = now;
+          window.open(decodedText, "_blank");
+        }
+      }
+    }
+
     function startScanner() {
       html5QrCode.start(
         { facingMode: "environment" },
         { fps: 10, qrbox: 250 },
-        (decodedText) => {
-          if (decodedText !== lastResult) {
-            lastResult = decodedText;
-            resultDiv.innerText = "📌 " + decodedText;
-
-            // فتح اللينك تلقائيًا لو URL
-            if (isValidURL(decodedText)) {
-              window.open(decodedText, "_blank");
-            }
-          }
-        },
+        (decodedText) => handleResult(decodedText),
         (error) => {}
       ).then(() => {
         isRunning = true;
@@ -134,29 +148,41 @@
       html5QrCode.stop().then(() => {
         isRunning = false;
         toggleBtn.innerText = "تشغيل الكاميرا";
-      }).catch(err => {
-        console.log("Stop error", err);
       });
     }
 
     toggleBtn.addEventListener("click", () => {
-      if (!isRunning) {
-        startScanner();
-      } else {
-        stopScanner();
-      }
+      if (!isRunning) startScanner();
+      else stopScanner();
     });
 
     copyBtn.addEventListener("click", () => {
-      if (!lastResult) {
+      if (!resultDiv.innerText || resultDiv.innerText === "النتيجة هتظهر هنا") {
         alert("مفيش نتيجة لسه!");
         return;
       }
 
-      navigator.clipboard.writeText(lastResult).then(() => {
+      const text = resultDiv.innerText.replace("📌 ", "");
+      navigator.clipboard.writeText(text).then(() => {
         copyBtn.innerText = "✔ تم النسخ";
         setTimeout(() => copyBtn.innerText = "نسخ", 1500);
       });
+    });
+
+    // 📤 قراءة QR من صورة
+    imageInput.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      if (isRunning) stopScanner();
+
+      html5QrCode.scanFile(file, true)
+        .then(decodedText => {
+          handleResult(decodedText);
+        })
+        .catch(err => {
+          alert("❌ لم يتم العثور على QR في الصورة");
+        });
     });
   </script>
 
