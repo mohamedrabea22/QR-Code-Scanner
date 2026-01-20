@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>QR Code Scanner</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Aref+Ruqaa+Ink:wght@400;700&family=Cairo:wght@200..1000&family=Lemonada:wght@300..700&family=Miniver&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Quicksand:wght@300..700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/html5-qrcode"></script>
+
+  <style>
+    body {
+      margin: 0;
+      height: 100vh;
+      background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: "Lemonada", Arial, sans-serif;
+      color: #fff;
+    }
+
+    .card {
+      width: 350px;
+      padding: 20px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(15px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.37);
+      text-align: center;
+    }
+
+    h2 {
+      margin-bottom: 15px;
+    }
+
+    #reader {
+      width: 100%;
+      border-radius: 15px;
+      overflow: hidden;
+      margin-bottom: 15px;
+    }
+
+    #result {
+      background: rgba(255,255,255,0.15);
+      padding: 10px;
+      border-radius: 10px;
+      min-height: 40px;
+      word-break: break-all;
+      margin-bottom: 10px;
+    }
+
+    .btns {
+      display: flex;
+      gap: 10px;
+    }
+
+    button {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    button:hover {
+      background: rgba(255,255,255,0.35);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h2>📷 QR Scanner</h2>
+
+    <div id="reader"></div>
+
+    <div id="result">النتيجة هتظهر هنا</div>
+
+    <div class="btns">
+      <button id="toggleBtn">تشغيل الكاميرا</button>
+      <button id="copyBtn">نسخ</button>
+    </div>
+  </div>
+
+  <script>
+    const resultDiv = document.getElementById("result");
+    const toggleBtn = document.getElementById("toggleBtn");
+    const copyBtn   = document.getElementById("copyBtn");
+
+    let isRunning = false;
+    let lastResult = "";
+
+    const html5QrCode = new Html5Qrcode("reader");
+
+    function isValidURL(str) {
+      try {
+        new URL(str);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    function startScanner() {
+      html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 250 },
+        (decodedText) => {
+          if (decodedText !== lastResult) {
+            lastResult = decodedText;
+            resultDiv.innerText = "📌 " + decodedText;
+
+            // فتح اللينك تلقائيًا لو URL
+            if (isValidURL(decodedText)) {
+              window.open(decodedText, "_blank");
+            }
+          }
+        },
+        (error) => {}
+      ).then(() => {
+        isRunning = true;
+        toggleBtn.innerText = "إيقاف الكاميرا";
+      }).catch(err => {
+        alert("فشل تشغيل الكاميرا: " + err);
+      });
+    }
+
+    function stopScanner() {
+      html5QrCode.stop().then(() => {
+        isRunning = false;
+        toggleBtn.innerText = "تشغيل الكاميرا";
+      }).catch(err => {
+        console.log("Stop error", err);
+      });
+    }
+
+    toggleBtn.addEventListener("click", () => {
+      if (!isRunning) {
+        startScanner();
+      } else {
+        stopScanner();
+      }
+    });
+
+    copyBtn.addEventListener("click", () => {
+      if (!lastResult) {
+        alert("مفيش نتيجة لسه!");
+        return;
+      }
+
+      navigator.clipboard.writeText(lastResult).then(() => {
+        copyBtn.innerText = "✔ تم النسخ";
+        setTimeout(() => copyBtn.innerText = "نسخ", 1500);
+      });
+    });
+  </script>
+
+</body>
+</html>
